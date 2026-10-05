@@ -54,4 +54,9 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+
+}
+configurations.all {
+    exclude(group = "com.intellij", module = "annotations")
 }

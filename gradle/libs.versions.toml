@@ -12,6 +12,7 @@ roomCompiler = "2.8.5"
 roomKtx = "2.8.5"
 roomRuntime = "2.8.5"
 
+
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
