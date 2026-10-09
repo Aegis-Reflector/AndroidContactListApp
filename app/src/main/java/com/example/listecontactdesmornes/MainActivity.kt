@@ -23,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.graphics.*
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,6 +37,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Divider
@@ -51,162 +54,152 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.listecontactdesmornes.data.Contact
+import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
 
 class MainActivity : ComponentActivity() {
+    private val contactViewModel: ContactViewModel by viewModels()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             ListeContactDesmornesTheme {
-                  ContactScreen()
+                ContactScreen(contactViewModel)
 
-                }
             }
         }
+        contactViewModel.add(
+            Contact(
+                firstname = "Test",
+                lastname = "Contact",
+                phonenumber = "555-0000",
+                email = "test@test.com",
+                address = "1 Test St",
+                age = 20,
+                isFavorite = true
+            )
+        )
     }
+}
 
-
-data class TvShow(
-    val id: Int,
-    val title: String,
-    val year: Int,
-    val network: String,
-    val isFavorite: Boolean
-)
-
-val sampleShows = listOf(
-    TvShow(1, "Breaking Bad", 2008, "AMC", true),
-    TvShow(2, "Better Call Saul", 2015, "AMC", false),
-    TvShow(3, "Game of Thrones", 2011, "HBO", false),
-    TvShow(4, "The Sopranos", 1999, "HBO", true),
-    TvShow(5, "The Wire", 2002, "HBO", false),
-    TvShow(6, "Stranger Things", 2016, "Netflix", false),
-    TvShow(7, "Succession", 2018, "HBO", true),
-    TvShow(8, "Mad Men", 2007, "AMC", false),
-    TvShow(9, "Dark", 2017, "Netflix", false),
-    TvShow(10, "Mindhunter", 2017, "Netflix", true),
-    TvShow(11, "The Crown", 2016, "Netflix", false),
-    TvShow(12, "True Detective", 2014, "HBO", false)
-)
 
 enum class Screen {
-    LIST,
-    EDIT
+    LIST, EDIT
 }
 
 @Composable
-fun Application(modifier: Modifier = Modifier) {
+fun Application(
+    contacts: List<Contact>, viewModel: ContactViewModel, modifier: Modifier = Modifier
+) {
 
     var screen by remember {
         mutableStateOf(Screen.LIST)
     }
 
-    var selectedId by remember {
+    var selectedUId by remember {
         mutableIntStateOf(0)
     }
-    var shows by remember {
-        mutableStateOf(sampleShows)
-    }
+
 
     when (screen) {
 
         Screen.LIST -> {
-            ShowsList(
-                shows = shows,
-                onShowClick = {
-                    selectedId = it
+            ContactList(
+                contacts = contacts, onShowClick = {
+                    selectedUId = it
                     screen = Screen.EDIT
-                }
-            )
+                })
         }
 
         Screen.EDIT -> {
-            val selectedShow = sampleShows.find {
-                it.id == selectedId
+            val selectedContact = contacts.find {
+                it.uid == selectedUId
             }
 
-            if (selectedShow != null) {
-                Formulaire(
-                    selectedShow,
+            if (selectedContact != null) {
+                EditContacts(
+                    contacts = selectedContact,
                     onCancel = { screen = Screen.LIST },
-                    onSave = { updatedShow ->
-                        shows = shows.map { show ->
-                            if (show.id == updatedShow.id) {
-                                updatedShow
-                            } else {
-                                show
-                            }
-                        }
-
+                    onSave = { updatedContact ->
+                        viewModel.update(updatedContact)
                         screen = Screen.LIST
-                    }
-                )
-
+                    })
             }
         }
     }
 }
 
+
 @Composable
-fun ShowsList(
-    shows: List<TvShow>,
-    onShowClick: (Int) -> Unit,
-    modifier: Modifier = Modifier
+fun ContactList(
+    contacts: List<Contact>, onShowClick: (Int) -> Unit, modifier: Modifier = Modifier
 ) {
 
     LazyColumn(
         modifier = modifier
     ) {
+        items(items = contacts) { contacts ->
 
-        items(items = shows) { show ->
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        onShowClick(show.id)
-                    }
-                    .padding(16.dp),
+            Row(modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    onShowClick(contacts.uid)
+                }
+                .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+                verticalAlignment = Alignment.CenterVertically) {
 
                 Column {
-                    Text(show.title)
-                    Text("${show.network} • ${show.year}")
+                    Text("${contacts.firstname} ${contacts.lastname}")
+                    Text(contacts.phonenumber)
                 }
 
-                if (show.isFavorite) {
+                if (contacts.isFavorite) {
                     Text("★")
                 }
             }
 
-            Divider()
+            HorizontalDivider()
         }
     }
 }
 
 @Composable
-fun Formulaire(show: TvShow,
-               onCancel: () -> Unit,
-               onSave : (TvShow) -> Unit,
-               modifier: Modifier = Modifier) {
+fun EditContacts(
+    contacts: Contact,
+    onCancel: () -> Unit,
+    onSave: (Contact) -> Unit,
+    modifier: Modifier = Modifier
+) {
 
-    var title by remember {
-        mutableStateOf(show.title)
+    var firstname by remember {
+        mutableStateOf(contacts.firstname)
     }
 
-    var year by remember {
-        mutableStateOf(show.year.toString())
+    var lastname by remember {
+        mutableStateOf(contacts.lastname)
     }
-
-    var network by remember {
-        mutableStateOf(show.network)
+    var phonenumber by remember {
+        mutableStateOf(contacts.phonenumber)
     }
-
+    var email by remember {
+        mutableStateOf(contacts.email)
+    }
+    var address by remember {
+        mutableStateOf(contacts.address)
+    }
+    var age by remember {
+        mutableStateOf(contacts.age.toString())
+    }
     var isFav by remember {
-        mutableStateOf(show.isFavorite)
+        mutableStateOf(contacts.isFavorite)
     }
+
+
 
     Column(
         modifier = Modifier
@@ -215,9 +208,8 @@ fun Formulaire(show: TvShow,
 
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ){
+            modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally
+        ) {
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(50.dp)
@@ -225,17 +217,7 @@ fun Formulaire(show: TvShow,
             ) {
 
                 Button(
-                    onClick = {
-                        onSave(
-                            TvShow(
-                                id = show.id,
-                                title = title,
-                                year = year.toIntOrNull() ?: show.year,
-                                network = network,
-                                isFavorite = isFav
-                            )
-                        )
-                    },
+                    onClick = {},
                     shape = RoundedCornerShape(50),
                 ) {
                     Text("Take Photo")
@@ -245,7 +227,7 @@ fun Formulaire(show: TvShow,
                     onClick = { onCancel() },
                     shape = RoundedCornerShape(50),
 
-                ) {
+                    ) {
                     Text("Gallery")
                 }
             }
@@ -256,15 +238,11 @@ fun Formulaire(show: TvShow,
 
 
         OutlinedTextField(
-            value = title,
-            onValueChange = {
-                title = it
-            },
-            label = {
-                Text("Name")
-            },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            value = firstname, onValueChange = {
+            firstname = it
+        }, label = {
+            Text(text = "First Name")
+        }, modifier = Modifier.fillMaxWidth(), singleLine = true
         )
 
         Spacer(
@@ -272,15 +250,11 @@ fun Formulaire(show: TvShow,
         )
 
         OutlinedTextField(
-            value = year,
-            onValueChange = {
-                year = it
-            },
-            label = {
-                Text("Phone Number")
-            },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            value = lastname, onValueChange = {
+            lastname = it
+        }, label = {
+            Text("Last Name")
+        }, modifier = Modifier.fillMaxWidth(), singleLine = true
         )
 
         Spacer(
@@ -288,15 +262,11 @@ fun Formulaire(show: TvShow,
         )
 
         OutlinedTextField(
-            value = network,
-            onValueChange = {
-                network = it
-            },
-            label = {
-                Text("Age")
-            },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            value = phonenumber, onValueChange = {
+            phonenumber = it
+        }, label = {
+            Text("Phone Number")
+        }, modifier = Modifier.fillMaxWidth(), singleLine = true
         )
 
         Spacer(
@@ -304,15 +274,11 @@ fun Formulaire(show: TvShow,
         )
 
         OutlinedTextField(
-            value = network,
-            onValueChange = {
-                network = it
-            },
-            label = {
-                Text("Email")
-            },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            value = email, onValueChange = {
+            email = it
+        }, label = {
+            Text("Email")
+        }, modifier = Modifier.fillMaxWidth(), singleLine = true
         )
 
 
@@ -321,15 +287,23 @@ fun Formulaire(show: TvShow,
         )
 
         OutlinedTextField(
-            value = network,
-            onValueChange = {
-                network = it
-            },
-            label = {
-                Text("Address")
-            },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            value = address, onValueChange = {
+            address = it
+        }, label = {
+            Text("Address")
+        }, modifier = Modifier.fillMaxWidth(), singleLine = true
+        )
+
+
+        Spacer(
+            modifier = Modifier.height(16.dp)
+        )
+        OutlinedTextField(
+            value = age, onValueChange = {
+            age = it
+        }, label = {
+            Text("Age")
+        }, modifier = Modifier.fillMaxWidth(), singleLine = true
         )
 
 
@@ -344,72 +318,86 @@ fun Formulaire(show: TvShow,
         ) {
 
             Checkbox(
-                checked = isFav,
-                onCheckedChange = {
+                checked = isFav, onCheckedChange = {
                     isFav = it
-                }
-            )
+                })
 
             Text("Favorite")
         }
 
         Spacer(modifier = Modifier.weight(1f))
-            Row(
-                modifier= Modifier.fillMaxWidth()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
                 .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(
-                    onClick = {
-                        onSave(
-                            TvShow(
-                                id = show.id,
-                                title = title,
-                                year = year.toIntOrNull() ?: show.year,
-                                network = network,
-                                isFavorite = isFav
-                            )
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(
+                onClick = {
+                    onCancel()
+                }) {
+                Text("Cancel", color = Color.Black)
+            }
+            Text("|", color = Color.Gray, fontSize = 16.sp)
+            TextButton(
+                onClick = {
+                    onSave(
+                        contacts.copy(
+                            firstname = firstname,
+                            lastname = lastname,
+                            phonenumber = phonenumber,
+                            email = email,
+                            address = address,
+                            age = age.toIntOrNull() ?: 0,
+                            isFavorite = isFav
                         )
-                    }
-                ) {
-                    Text("Cancel", color = Color.Black)
-                }
-                Text("|", color = Color.Gray, fontSize = 16.sp)
-                TextButton(
-                    onClick = { onCancel() }
-
-                ) {
-                    Text("Save", color = Color.Black, fontSize = 16.sp)
-                }
+                    )
+                }) {
+                Text("Save", color = Color.Black, fontSize = 16.sp)
             }
         }
     }
-
+}
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ContactScreen (modifier: Modifier = Modifier) {
+fun ContactScreen(
+    contactViewModel: ContactViewModel, modifier: Modifier = Modifier
+) {
+
+    val contacts by contactViewModel.contacts.collectAsState()
+
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Contact App ", color = Color.White) },
-                colors = TopAppBarDefaults.topAppBarColors(MaterialTheme.colorScheme.primary)
+                title = { Text("Contact App ", color = Color.White) }, actions = {
+                IconButton({}) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Ajouter un contact"
+                    )
+                }
+            }, colors = topAppBarColors(
+                MaterialTheme.colorScheme.primary
             )
+
+
+            )
+
         },
 
         content = { paddingValues ->
             Box(
-                modifier = Modifier
-                    .padding(paddingValues)
+                modifier = Modifier.padding(paddingValues)
             ) {
-                Application()
+                Application(contacts = contacts, viewModel = contactViewModel)
 
 
             }
-        }
-    )
+        })
 }
 
 
@@ -417,6 +405,6 @@ fun ContactScreen (modifier: Modifier = Modifier) {
 @Composable
 fun GreetingPreview() {
     ListeContactDesmornesTheme {
-        ContactScreen()
+
     }
 }
