@@ -54,7 +54,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.overscroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -65,8 +64,29 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import coil.compose.rememberAsyncImagePainter
-import android.content.Intent
 import android.widget.Toast
+import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.runtime.SideEffect
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.text.AnnotatedString
+
+
 
 class MainActivity : ComponentActivity() {
     private val contactViewModel: ContactViewModel by viewModels()
@@ -87,37 +107,115 @@ enum class Screen {
     LIST, EDIT
 }
 
+// Options de tri possibles; labelRes = texte affiche dans le menu
+enum class SortOptions(@StringRes val labelRes: Int) {
+    NAME_ASC(R.string.sort_name_asc),
+    NAME_DESC(R.string.sort_name_desc),
+    FAVORITES_FIRST(R.string.sort_favorites_first)
+}
+
+// Filtre la liste selon la recherche, puis la trie selon l'option choisie.
+fun filterAndSort(contacts: List<Contact>, query: String, sortOptions: SortOptions): List<Contact> {
+
+    val text = query.trim()
+    // Le numero est stocker en chiffres seulement: on compare avec les chiffres de la recherche
+    val digits = text.filter { it.isDigit() }
+
+    val filtered = if (text.isEmpty()) {
+        contacts
+    } else {
+        contacts.filter {
+            "${it.firstname} ${it.lastname}".contains(text, ignoreCase = true) ||
+                    // digits.isNotEmpty(): sinon "contains" serait toujours vrai avec un texte vide
+                    (digits.isNotEmpty() && it.phonenumber.filter { c -> c.isDigit() }
+                        .contains(digits))
+        }
+    }
+
+    // Ordre de l'alphabet par prenom ,nom
+    val byName = compareBy<Contact>(
+        { it.firstname.lowercase() },
+        { it.lastname.lowercase() })
+
+    return when (sortOptions) {
+        SortOptions.NAME_ASC -> filtered.sortedWith(byName)
+        SortOptions.NAME_DESC -> filtered.sortedWith(byName.reversed())
+        // Favoris d'abord
+        SortOptions.FAVORITES_FIRST ->
+            filtered.sortedWith(
+                compareByDescending<Contact>
+                { it.isFavorite }.then(byName)
+            )
+    }
+}
+fun formatPhone(digits: String): String =
+    NanpVisualTransformation().filter(AnnotatedString(digits)).text.text
+
 @Composable
 fun ContactList(
-    contacts: List<Contact>, onShowClick: (Int) -> Unit, modifier: Modifier = Modifier
+    contacts: List<Contact>,
+    seenContacts: MutableSet<Int>,// contacts déjà afficher
+    onShowClick: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
 ) {
 
     LazyColumn(
-        modifier = modifier
+        modifier = modifier,
+        contentPadding = contentPadding
     ) {
-        items(items = contacts) { contacts ->
+        //key = identifiant unique , pour animer
+        items(items = contacts, key = { it.uid }) { contacts ->
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        onShowClick(contacts.uid)
-                    }
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically) {
+            val visibleState = remember {
+                MutableTransitionState(
+                    contacts.uid in seenContacts
+                )
+            }
+            SideEffect { seenContacts.add(contacts.uid) }
+            visibleState.targetState = true
 
+            AnimatedVisibility(
+                visibleState = visibleState,
+                modifier = Modifier.animateItem(),
+                enter = slideInHorizontally(tween(350)) { -it } +
+                        expandVertically(tween(350)) +
+                        fadeIn(tween(350))
+            ) {
                 Column {
-                    Text("${contacts.firstname} ${contacts.lastname}")
-                    Text(contacts.phonenumber)
-                }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onShowClick(contacts.uid)
+                            }
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically) {
 
-                if (contacts.isFavorite) {
-                    Text("★")
+                        Column {
+                            Text("${contacts.firstname} ${contacts.lastname}")
+                            Text(formatPhone(contacts.phonenumber))
+                        }
+
+
+                        AnimatedVisibility(
+                            visible = contacts.isFavorite,
+                            enter = scaleIn(
+                                spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy
+                                )
+                            ) + fadeIn(),
+                            exit = scaleOut() + fadeOut()
+                        ) {
+                            Text("★")
+                        }
+
+                    }
+
+                    HorizontalDivider()
                 }
             }
-
-            HorizontalDivider()
         }
     }
 }
@@ -138,7 +236,7 @@ fun EditContacts(
         mutableStateOf(contacts.lastname)
     }
     var phonenumber by remember {
-        //https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.text/filter.html
+
         mutableStateOf(contacts.phonenumber.filter { it.isDigit() }.takeLast(10))
     }
     var email by remember {
@@ -306,7 +404,7 @@ fun EditContacts(
 
             OutlinedTextField(
                 value = phonenumber, onValueChange = {
-                    phonenumber = it
+                    phonenumber = it.filter { c->c.isDigit() }.take(10)
                 }, label = {
                     Text(stringResource(R.string.phone_number))
                 },
@@ -315,7 +413,8 @@ fun EditContacts(
 
                 isError = showErrors && phonenumber.isBlank(),
                 supportingText = {
-                    if (showErrors && phonenumber.isBlank()) Text(stringResource(R.string.required_field))
+                    if (showErrors && phonenumber.isBlank())
+                        Text(stringResource(R.string.required_field))
                 },
                 modifier = Modifier.fillMaxWidth(), singleLine = true
             )
@@ -351,7 +450,7 @@ fun EditContacts(
             )
             OutlinedTextField(
                 value = age, onValueChange = {
-                    age = it.filter { c-> c.isDigit() }
+                    age = it.filter { c -> c.isDigit() }
                 }, label = {
                     Text(stringResource(R.string.age))
                 }, modifier = Modifier.fillMaxWidth(), singleLine = true
@@ -413,13 +512,74 @@ fun EditContacts(
                             )
                         }
                     }) {
-                    Text("Save", color = Color.Black, fontSize = 16.sp)
+                    Text(stringResource(R.string.save), color = Color.Black, fontSize = 16.sp)
                 }
             }
         }
     }
 }
 
+
+@Composable
+fun SearchAndSortBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    sortOption: SortOptions,
+    onSortChange: (SortOptions) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Menu de tri ouvert ou fermé
+    var menuOpen by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.weight(1f),
+            singleLine = true,
+            placeholder = { Text(stringResource(R.string.search)) },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            // Bouton pour effacer, visible seulement s'il y a du texte
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { onQueryChange("") }) {
+                        Icon(Icons.Default.Clear, stringResource(R.string.clear_search))
+                    }
+                }
+            }
+        )
+
+        // Box: ancre le menu déroulant sous le bouton "Trier"
+        Box {
+            TextButton(onClick = { menuOpen = true }) {
+                Text(stringResource(R.string.sort))
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                SortOptions.entries.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(option.labelRes)) },
+                        // Coche devant l'option actuellement active
+                        leadingIcon = {
+                            if (option == sortOption) Icon(
+                                Icons.Default.Check,
+                                contentDescription = null
+                            )
+                        },
+                        onClick = {
+                            onSortChange(option)
+                            menuOpen = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -430,7 +590,14 @@ fun ContactScreen(
     val contacts by contactViewModel.contacts.collectAsState()
     var screen by remember { mutableStateOf(Screen.LIST) }
     var selectedUId by remember { mutableStateOf<Int?>(null) }
+    val seenContacts = remember { mutableSetOf<Int>() }
+    var searchQuery by remember { mutableStateOf("") }
+    var sortOption by remember { mutableStateOf(SortOptions.NAME_ASC) }
 
+    // Liste affichée: recalculée seulement quand la liste, la recherche ou le tri changent
+    val displayedContacts = remember(contacts, searchQuery, sortOption) {
+        filterAndSort(contacts, searchQuery, sortOption)
+    }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -483,23 +650,48 @@ fun ContactScreen(
         },
 
         content = { paddingValues ->
-            Box(
-                modifier = Modifier
-                    .padding(paddingValues)
-                    .fillMaxSize()
 
-            ) {
-                when (screen) {
+            when (screen) {
 
-                    Screen.LIST -> {
-                        ContactList(
-                            contacts = contacts, onShowClick = {
-                                selectedUId = it
-                                screen = Screen.EDIT
-                            })
+                Screen.LIST -> {
+                    Column(modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                    ) {
+                        SearchAndSortBar(
+                            query = searchQuery,
+                            onQueryChange = { searchQuery = it },
+                            sortOption = sortOption,
+                            onSortChange = { sortOption = it }
+                        )
+
+                        if (displayedContacts.isEmpty() && searchQuery.isNotBlank()) {
+                            // Recherche sans resultat
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text(stringResource(R.string.no_results))
+                            }
+                        } else {
+
+                            ContactList(
+                                contacts = displayedContacts,
+                                seenContacts = seenContacts,
+                                modifier = Modifier.weight(1f),
+                                onShowClick = {
+                                    selectedUId = it
+                                    screen = Screen.EDIT
+                                })
+                        }
                     }
 
-                    Screen.EDIT -> {
+                }
+
+                Screen.EDIT -> {
+                    Box(
+                        modifier = Modifier
+                            .padding(paddingValues)
+                            .fillMaxSize()
+
+                    ) {
                         val selectedContact = contacts.find {
                             it.uid == selectedUId
                         }

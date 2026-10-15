@@ -16,4 +16,15 @@
     <string name="toast_added">Contact added</string>
     <string name="toast_updated">Contact updated</string>
     <string name="toast_deleted">Contact deleted</string>
+    <string name="search">Search</string>
+    <string name="clear_search">Clear search</string>
+    <string name="sort">Sort</string>
+    <string name="sort_name_asc">Name A-Z</string>
+    <string name="sort_name_desc">Name Z-A</string>
+    <string name="sort_favorites_first">Favorites first</string>
+    <string name="no_results">No contacts found</string>
+    <string name="action_call">Call</string>
+    <string name="action_text">Text</string>
+    <string name="action_email">Email</string>
+    <string name="no_app_found">No app found for this action</string>
 </resources>
