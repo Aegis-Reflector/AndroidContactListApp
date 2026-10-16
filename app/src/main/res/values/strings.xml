@@ -1,6 +1,8 @@
 <resources>
     <string name="app_name">Contact App</string>
     <string name="contact_photo">Contact photo</string>
+    <string name="add_contact">Add contact</string>
+    <string name="delete_contact">Delete contact</string>
     <string name="take_photo">Take photo</string>
     <string name="gallery">Gallery</string>
     <string name="first_name">First name</string>

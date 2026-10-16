@@ -7,6 +7,11 @@ import androidx.compose.ui.text.input.VisualTransformation
 
 
 
+fun formatPhone(phone: String): String {
+    val digits = phone.filter { it.isDigit() }.takeLast(10)
+    return NanpVisualTransformation().filter(AnnotatedString(digits)).text.text
+}
+
 class NanpVisualTransformation : VisualTransformation {
 
     override fun filter(text: AnnotatedString): TransformedText {
@@ -49,4 +54,5 @@ class NanpVisualTransformation : VisualTransformation {
                 return o.coerceIn(0, 10)
             }
         }
+
     }
