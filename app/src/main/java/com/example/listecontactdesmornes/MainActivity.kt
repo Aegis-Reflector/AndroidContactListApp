@@ -26,6 +26,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,14 +64,14 @@ fun ContactScreen(
     val context = LocalContext.current
 
     val contacts by contactViewModel.contacts.collectAsState()
-    var screen by remember { mutableStateOf(Screen.LIST) }
-    var selectedUId by remember { mutableStateOf<Int?>(null) }
+    var screen by rememberSaveable() { mutableStateOf(Screen.LIST) }
+    var selectedUId by rememberSaveable(){ mutableStateOf<Int?>(null) }
 
     val seenContacts = remember { mutableSetOf<Int>() }
 
 
-    var searchQuery by remember { mutableStateOf("") }
-    var sortOption by remember { mutableStateOf(SortOptions.NAME_ASC) }
+    var searchQuery by rememberSaveable() { mutableStateOf("") }
+    var sortOption by rememberSaveable() { mutableStateOf(SortOptions.NAME_ASC) }
 
 
     val displayedContacts = remember(contacts, searchQuery, sortOption) {

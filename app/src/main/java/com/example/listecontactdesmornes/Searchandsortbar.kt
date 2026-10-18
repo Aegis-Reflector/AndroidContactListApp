@@ -25,7 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 
-// Barre de recherche + menu de tri, affichée au-dessus de la liste
+// Barre de recherche + menu de tri, affichee au-dessus de la liste
 @Composable
 fun SearchAndSortBar(
     query: String,
@@ -34,7 +34,7 @@ fun SearchAndSortBar(
     onSortChange: (SortOptions) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Menu de tri ouvert ou fermé
+    // Menu de tri ouvert ou ferme
     var menuOpen by remember { mutableStateOf(false) }
 
     Row(
@@ -60,7 +60,7 @@ fun SearchAndSortBar(
             }
         )
 
-        // Box: ancre le menu déroulant sous le bouton "Trier"
+        // Box: ancre le menu deroulant sous le bouton "Trier"
         Box {
             TextButton(onClick = { menuOpen = true }) {
                 Text(stringResource(R.string.sort))

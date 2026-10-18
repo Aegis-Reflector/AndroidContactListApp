@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.net.Uri
 import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -31,7 +32,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,27 +57,27 @@ fun EditContacts(
     modifier: Modifier = Modifier
 ) {
 
-    var firstname by remember { mutableStateOf(contact.firstname) }
-    var lastname by remember { mutableStateOf(contact.lastname) }
+    var firstname by rememberSaveable() { mutableStateOf(contact.firstname) }
+    var lastname by rememberSaveable() { mutableStateOf(contact.lastname) }
 
-    var phonenumber by remember {
+    var phonenumber by rememberSaveable() {
         mutableStateOf(contact.phonenumber.filter { it.isDigit() }.takeLast(10))
     }
-    var email by remember { mutableStateOf(contact.email) }
-    var address by remember { mutableStateOf(contact.address) }
+    var email by rememberSaveable() { mutableStateOf(contact.email) }
+    var address by rememberSaveable() { mutableStateOf(contact.address) }
 
-    var age by remember { mutableStateOf(if (contact.age == 0) "" else contact.age.toString()) }
-    var isFav by remember { mutableStateOf(contact.isFavorite) }
+    var age by rememberSaveable() { mutableStateOf(if (contact.age == 0) "" else contact.age.toString()) }
+    var isFav by rememberSaveable() { mutableStateOf(contact.isFavorite) }
 
 
-    var showErrors by remember { mutableStateOf(false) }
+    var showErrors by rememberSaveable() { mutableStateOf(false) }
 
     val context = LocalContext.current
 
-    var photoUri by remember { mutableStateOf(contact.photoUri?.let(Uri::parse)) }
+    var photoUri by rememberSaveable() { mutableStateOf(contact.photoUri?.let(Uri::parse)) }
 
 
-    val cameraUri by remember {
+    val cameraUri by rememberSaveable() {
         mutableStateOf(
             context.contentResolver.insert(
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
@@ -103,7 +104,7 @@ fun EditContacts(
 
 
     val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) photoUri = uri
     }
@@ -111,6 +112,7 @@ fun EditContacts(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
 
@@ -118,7 +120,7 @@ fun EditContacts(
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
                 .size(96.dp)
-                .clip(CircleShape)   // découpe en cercle
+                .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primary),
             contentAlignment = Alignment.Center
         ) {
@@ -158,8 +160,12 @@ fun EditContacts(
             ) { Text(stringResource(R.string.take_photo)) }
 
             Button(
-                // "image/*" = on n'affiche que les images dans la galerie
-                onClick = { galleryLauncher.launch("image/*") },
+                onClick = {
+                    galleryLauncher.launch(
+                        PickVisualMediaRequest
+                            (ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                },
                 shape = RoundedCornerShape(50),
             ) { Text(stringResource(R.string.gallery)) }
         }
@@ -178,8 +184,7 @@ fun EditContacts(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
+
         ) {
             RequiredTextField(
                 value = firstname,

@@ -31,7 +31,7 @@ fun filterAndSort(
         }
     }
 
-    // Ordre prénom,nom
+    // Ordre prenom,nom
     val byName = compareBy<Contact>(
         { it.firstname.lowercase() },
         { it.lastname.lowercase() })
